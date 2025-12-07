@@ -11,38 +11,14 @@ import time
 from typing import List, Dict
 
 def load_data():
-    """Load and combine data from both consensus files."""
-    data_files = [
-        "data/Consensus items : Group 1 - Red Flag vs Green Flag.json",
-        "data/Consensus items: Group 2 - Red Flag vs Green Flag.json"
-    ]
-    
-    combined_data = []
-    
-    for file_path in data_files:
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                combined_data.extend(data)
-        except FileNotFoundError:
-            st.error(f"Data file not found: {file_path}")
-            return pd.DataFrame()
-        except json.JSONDecodeError:
-            st.error(f"Invalid JSON in file: {file_path}")
-            return pd.DataFrame()
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(combined_data)
-    
-    # Filter out 'Neither' labels for binary classification
-    df = df[df['gold_label'].isin(['Red Flag', 'Green Flag'])]
-    
-    return df
+    """Load data from the source files."""
+    data_file = "data/Customer_Sentiment.csv"
+    return pd.read_csv(data_file)
 
 def create_balanced_split(df, test_size=0.3, random_state=42):
     """Create a balanced train-test split for few-shot examples and evaluation."""
-    X = df['sentence']
-    y = df['gold_label']
+    X = df['review_text']
+    y = df['sentiment']
     
     # Stratified split to maintain class balance
     X_train, X_test, y_train, y_test = train_test_split(
@@ -80,10 +56,9 @@ def create_few_shot_examples(X_train, y_train, n_examples_per_class=10):
 def build_few_shot_prompt(few_shot_examples: List[Dict], target_text: str) -> str:
     """Build a few-shot prompt for the LLM."""
     
-    prompt = """You are a text classifier that categorizes sentences as either "Red Flag" or "Green Flag".
+    prompt = """You are a text classifier that categorizes reviews as either "Negative" or "Positive".
 
-    Your task is to label the sentence as either 'Green flag' or 'Red flag'. 
-    Base your judgment on the main perspective implied by the text, as follows: If the text contains pronouns like 'I' and 'you', imagine you are hearing the speaker or the speaker is addressing you, and ask yourself: "Is this a green flag or a red flag?" If the text has a 3rd person perspective (with pronouns like "s/he" and "them"), put yourself in the narrator's shoes and ask yourself: "Is this a green or a red flag?"
+    Your task is to label the review as either 'Positive' or 'Negative'. 
     Try to consider the sentence as a stand-alone text (even if you know the source).
 
 Here are some examples:
@@ -121,7 +96,7 @@ def predict_with_llm(client, few_shot_examples: List[Dict], texts: List[str], mo
             response = client.chat.completions.create(
                 model=model_name,
                 messages=[
-                    {"role": "system", "content": "You are a helpful text classifier. Respond with exactly 'Red Flag' or 'Green Flag' only."},
+                    {"role": "system", "content": "You are a helpful text classifier. Respond with exactly 'Positive' or 'Negative' only."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.1,
